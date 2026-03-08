@@ -86,12 +86,12 @@ docker compose up -d
 ---
 
 ## ❗ Attenzione - Se si vuole fare uso del bot discord 
-Per avviare l'infrastruttura, crea un file `.env` nella **radice del progetto** (puoi rinominare e compilare il file `.env.example` incluso). L'unico parametro essenziale per le notifiche è l'URL del Webhook di Discord; se preferisci non utilizzare il sistema di alert, è sufficiente commentare o rimuovere il servizio `discord_bot` dal file `compose.yaml` prima del deploy.
+Per avviare l'infrastruttura, crea un file `.env` nella **radice del progetto** (puoi rinominare e compilare il file `.env.example` incluso, ricordati di renderlo nascosto). L'unico parametro essenziale per le notifiche è l'URL del Webhook di Discord; se preferisci non utilizzare il sistema di alert, è sufficiente commentare o rimuovere il servizio `discord_bot` dal file `compose.yaml` prima del deploy.
 
 ```text
 rpi-monitoring-stack/
 ├── .env              <-- Crea questo file
-├── .env.example      <-- Oppure rinomina questo
+├── env.example      <-- Oppure rinomina questo --> .env.example
 ├── compose.yaml
 └── ...
 ```
