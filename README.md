@@ -87,7 +87,6 @@ L'intero stack è definito come codice (`compose.yaml`) e gira su Raspberry Pi (
 ## Observability
 
 ![Grafana Dashboard](./grafana-dashboard.png)
-> *Placeholder — sostituisci con uno screenshot della tua dashboard Grafana*
 
 Prometheus fa scraping da due sorgenti:
 - **cAdvisor** → metriche a livello container (CPU, RAM, I/O di rete per ogni servizio)
