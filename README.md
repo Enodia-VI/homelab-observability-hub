@@ -72,16 +72,19 @@ Senza IP fisso, accedere ai servizi dall'esterno richiede di conoscere l'IP corr
 ---
 
 ## Setup
-```bash
+```
+bash
 git clone https://github.com/tuousername/rpi-homelab.git
 cd rpi-homelab
 docker compose up -d
 ```
+Ricorda di ottenere l'indirizzo ip della macchina host per collegarti via rete. 
+Per ottenere l'ip necessario si puo' optare per il seguente comando: `hostname -I`.
 
 | Servizio | URL |
 |---|---|
-| Applicazione | http://IP_HOST:3000 |
-| Grafana | http://IP_HOST:4000 |
+| Applicazione | `http://{IP_HOST}:3000` |
+| Grafana | `http://{IP_HOST}:4000` |
 
 ---
 
