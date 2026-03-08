@@ -80,8 +80,8 @@ docker compose up -d
 
 | Servizio | URL |
 |---|---|
-| Applicazione | http://raspberrypi.local:3000 |
-| Grafana | http://raspberrypi.local:4000 |
+| Applicazione | http://IP_HOST:3000 |
+| Grafana | http://IP_HOST:4000 |
 
 ---
 
