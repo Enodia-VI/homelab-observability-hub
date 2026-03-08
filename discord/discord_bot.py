@@ -25,7 +25,7 @@ def invia_a_discord():
     # Prepariamo il "pacchetto" (JSON) da mandare a Discord
     # Puoi usare il Markdown di Discord (es. il grassetto ** o il codice `)
     data = {
-        "content": f"🚀 **Raspberry Pi Online!**\nL'indirizzo IP locale è: http://{mio_ip}:{port}",
+        "content": f" **Raspberry Pi Online!**\nL'indirizzo IP locale è: http://{mio_ip}:{port}",
         "username": "Araldo del Lab"
     }
 
