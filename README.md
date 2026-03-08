@@ -1,85 +1,160 @@
-# Raspberry Pi Home-Lab: Containerized Infrastructure Stack
+# 🖥️ Raspberry Pi Home-Lab — Infrastructure & Observability Stack
 
-Un'infrastruttura containerizzata su Raspberry Pi con reverse proxy, backend applicativo, database isolato e observability stack completo.
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![Nginx](https://img.shields.io/badge/Nginx-Reverse_Proxy-009639?logo=nginx&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-Metrics-E6522C?logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?logo=grafana&logoColor=white)
+![Python](https://img.shields.io/badge/Python-Uvicorn-3776AB?logo=python&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-Database-DC382D?logo=redis&logoColor=white)
+![Platform](https://img.shields.io/badge/Platform-Raspberry_Pi_ARM64-C51A4A?logo=raspberrypi&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+Un'infrastruttura containerizzata completa su Raspberry Pi: reverse proxy, backend applicativo, database isolato e observability stack con metriche in tempo reale.
+
+---
+
+## Indice
+
+- [Overview](#overview)
+- [Stack](#stack)
+- [Architettura](#architettura)
+- [Observability](#observability)
+- [Discord Bot](#discord-bot)
+- [Setup](#setup)
+- [Problemi risolti](#problemi-risolti)
+- [Roadmap](#roadmap)
 
 ---
 
 ## Overview
 
-Questo progetto nasce come lab personale per mettere in pratica architetture reali in ambiente domestico. L'obiettivo non era solo "far girare qualcosa", ma prendere decisioni architetturali consapevoli: network isolation, service discovery interno, separazione dei layer applicativi.
+Questo lab nasce con un obiettivo preciso: replicare in piccolo le scelte architetturali che si trovano in ambienti di produzione reali. Non basta "far girare qualcosa" — ogni decisione ha una motivazione: separazione dei layer di rete, service discovery interno, persistenza dei dati, monitoring a più livelli.
 
-Lo stack è interamente definito via Docker Compose e gira su Raspberry Pi (ARM64).
+L'intero stack è definito come codice (`compose.yaml`) e gira su Raspberry Pi (ARM64). Zero configurazione manuale dopo il deploy.
 
 ---
 
 ## Stack
 
-| Layer | Tecnologia |
-|---|---|
-| Reverse Proxy | Nginx |
-| Backend | Python + Uvicorn |
-| Database | Redis |
-| Metrics Collection | Prometheus |
-| Visualization | Grafana |
-| Container Metrics | cAdvisor |
-| OS Metrics | Node Exporter |
-| Notifiche | Discord Bot (custom) |
-| Runtime | Docker + Docker Compose |
+| Layer | Tecnologia | Ruolo |
+|---|---|---|
+| Reverse Proxy | **Nginx** | Entry point, routing del traffico in ingresso |
+| Backend | **Python + Uvicorn** | API server ASGI |
+| Database | **Redis** | Store chiave-valore, rete isolata |
+| Metrics Collection | **Prometheus** | Scraping e storage delle metriche |
+| Visualization | **Grafana** | Dashboard e alerting |
+| Container Metrics | **cAdvisor** | CPU, RAM, I/O per container |
+| OS Metrics | **Node Exporter** | Metriche hardware e OS (inclusa temp. CPU ARM) |
+| Notifiche | **Discord Bot** (custom) | IP discovery su rete dinamica |
+| Runtime | **Docker + Docker Compose** | Orchestrazione locale |
 
 ---
 
 ## Architettura
-```
-                    ┌─────────────────────────────┐
-    Internet ──────►│     Nginx (Reverse Proxy)   │ :3000
-                    └──────────────┬──────────────┘
-                                   │ network: app-net
-                    ┌──────────────▼──────────────┐
-                    │    Python Backend (Uvicorn) │
-                    └──────────────┬──────────────┘
-     ------------------------------│-network: db-net----------------
-                    ┌──────────────▼──────────────┐
-                    │            Redis            │
-                    └─────────────────────────────┘
 
-                    ┌─────────────────────────────┐
-                    │   Prometheus + Grafana      │ :4000
-                    │   cAdvisor + Node Exporter  │
-                    └─────────────────────────────┘
+```
+                    ┌──────────────────────────────┐
+    Internet ──────►│      Nginx (Reverse Proxy)   │:3000
+                    └───────────────┬──────────────┘
+                                    │
+                          [ app-net network ]
+                                    │
+                    ┌───────────────▼──────────────┐
+                    │    Python Backend (Uvicorn)  │
+                    └───────────────┬──────────────┘
+                                    │
+                          [ db-net network ]
+                                    │
+                    ┌───────────────▼──────────────┐
+                    │             Redis            │  ← non raggiungibile dall'esterno
+                    └──────────────────────────────┘
+
+                    ╔══════════════════════════════╗
+                    ║  Prometheus  │  Grafana :4000 ║
+                    ║  cAdvisor   │  Node Exporter  ║
+                    ╚══════════════════════════════╝
 ```
 
 **Scelte architetturali:**
 
-- **Network isolation a due livelli** — Nginx e backend condividono `app-net`; backend e Redis condividono `db-net`. Redis non è raggiungibile dal proxy, né espone porte verso l'host.
-- **Service discovery via Docker DNS** — I servizi comunicano per nome container (`http://backend:8000`, `http://cadvisor:8080`). Zero IP hardcoded, zero configurazione manuale.
-- **Named volumes** — Dati di Prometheus e configurazioni Grafana persistono tra ricreazioni dei container.
-- **Nessuna porta sensibile esposta sull'host** — Node Exporter gira dentro la bridge network, con `/proc` e `/sys` montati come volumi. Niente fori nel firewall.
+- **Network isolation a due livelli** — Nginx e backend condividono `app-net`; backend e Redis condividono `db-net`. Redis non ha porte esposte verso l'host e non è raggiungibile dal proxy, minimizzando la superficie di attacco.
+- **Service discovery via Docker DNS** — I servizi comunicano per nome container (`http://backend:8000`, `http://cadvisor:8080`). Nessun IP hardcoded, nessuna configurazione da aggiornare al cambio di rete.
+- **Named volumes** — I dati storici di Prometheus e le configurazioni di Grafana sopravvivono alla ricreazione dei container.
+- **Node Exporter in-network** — Gira dentro la bridge network con `/proc` e `/sys` montati come volumi read-only. Nessuna porta esposta sul firewall dell'host.
 
 ---
 
 ## Observability
 
-Prometheus raccoglie metriche da cAdvisor (container-level) e Node Exporter (OS-level). Grafana le visualizza su dashboard personalizzate, incluse metriche specifiche per ARM come la temperatura della CPU del Raspberry.
+![Grafana Dashboard](.github/assets/grafana-dashboard.png)
+> *Placeholder — sostituisci con uno screenshot della tua dashboard Grafana*
 
-_Dashboard di riferimento:_ [1860](https://grafana.com/grafana/dashboards/1860)
+Prometheus fa scraping da due sorgenti:
+- **cAdvisor** → metriche a livello container (CPU, RAM, I/O di rete per ogni servizio)
+- **Node Exporter** → metriche a livello OS, inclusa la **temperatura della CPU** (metrica rilevante su ARM/Raspberry Pi, spesso ignorata in ambienti x86)
+
+Grafana visualizza tutto su dashboard custom basate sul template [Node Exporter Full (ID: 1860)](https://grafana.com/grafana/dashboards/1860), modificate per adattare gli intervalli di aggregazione temporale al carico reale del sistema ed evitare rumore nei grafici.
 
 ---
 
 ## Discord Bot
 
-Senza IP fisso, accedere ai servizi dall'esterno richiede di conoscere l'IP corrente. Il bot si connette a un server Discord e notifica l'indirizzo aggiornato in formato `http://{ip}:{porta}` ogni volta che cambia.
+Senza IP fisso, raggiungere i servizi sulla rete locale richiede di conoscere l'indirizzo corrente dell'host. Il bot monitora l'IP della macchina e invia una notifica su un canale Discord dedicato ogni volta che cambia, in formato diretto:
+
+```
+http://192.168.1.XX:3000   ← applicazione
+http://192.168.1.XX:4000   ← Grafana
+```
+
+Soluzione pragmatica all'assenza di DNS dinamico, senza dipendere da servizi esterni.
 
 ---
 
 ## Setup
-```
-bash
+
+### Prerequisiti
+
+- Docker e Docker Compose installati sull'host
+- (Opzionale) Un Webhook Discord per le notifiche IP
+
+### 1. Clona il repository
+
+```bash
 git clone https://github.com/tuousername/rpi-homelab.git
 cd rpi-homelab
+```
+
+### 2. Configura le variabili d'ambiente
+
+```bash
+cp .env.example .env
+# Apri .env e inserisci l'URL del tuo Webhook Discord (se lo usi)
+```
+
+```
+rpi-homelab/
+├── .env              ← crea da .env.example
+├── .env.example      ← template con i parametri disponibili
+├── compose.yaml
+└── ...
+```
+
+> Se non vuoi usare il bot Discord, commenta o rimuovi il servizio `discord_bot` nel `compose.yaml` prima del deploy.
+
+### 3. Avvia lo stack
+
+```bash
 docker compose up -d
 ```
-Ricorda di ottenere l'indirizzo ip della macchina host per collegarti via rete. 
-Per ottenere l'ip necessario si puo' optare per il seguente comando: `hostname -I`.
+
+### 4. Accedi ai servizi
+
+Per conoscere l'IP dell'host:
+
+```bash
+hostname -I
+# oppure, su Raspberry Pi: usa direttamente raspberrypi.local
+```
 
 | Servizio | URL |
 |---|---|
@@ -88,32 +163,24 @@ Per ottenere l'ip necessario si puo' optare per il seguente comando: `hostname -
 
 ---
 
-## ❗ Attenzione - Se si vuole fare uso del bot discord 
-Per avviare l'infrastruttura, crea un file `.env` nella **radice del progetto** (puoi rinominare e compilare il file `.env.example` incluso, ricordati di renderlo nascosto). L'unico parametro essenziale per le notifiche è l'URL del Webhook di Discord; se preferisci non utilizzare il sistema di alert, è sufficiente commentare o rimuovere il servizio `discord_bot` dal file `compose.yaml` prima del deploy.
-
-```text
-rpi-monitoring-stack/
-├── .env              <-- Crea questo file
-├── env.example      <-- Oppure rinomina questo --> .env.example
-├── compose.yaml
-└── ...
-```
----
-
 ## Problemi risolti
 
-**Prometheus non raggiungeva Node Exporter** — Il problema era UFW che bloccava il traffico verso `localhost:9100`. Invece di aprire la porta sul firewall dell'host, ho spostato Node Exporter dentro la bridge network e montato `/proc` e `/sys` come volumi. Comunicazione container-native, superficie di attacco invariata.
+### Prometheus → Node Exporter: timeout su UFW
+
+Node Exporter esposto sulla porta `9100` dell'host veniva bloccato da UFW, che non accetta connessioni di loopback da processi containerizzati verso l'host.
+
+**Soluzione:** Node Exporter spostato dentro la bridge network Docker, con `/proc` e `/sys` montati come volumi read-only nel container. Il dato raccolto è identico, ma la comunicazione avviene interamente tra container — nessuna regola firewall da aggiungere, nessuna porta esposta.
 
 ---
 
 ## Roadmap
 
 - [x] Reverse proxy con Nginx
-- [x] Backend Python + Redis con network isolation
-- [x] Monitoring stack (Prometheus, Grafana, cAdvisor, Node Exporter)
-- [x] Discord bot per IP discovery
-- [ ] Instaurare una sessione permanente con volumi Redis e dati salvati
-- [ ] Mappatura dei volumi per cambiamenti applicazione in tempo reale 
-- [ ] Log aggregation con Loki + Promtail
-- [ ] Provisioning automatizzato con Ansible
-- [ ] IaC con Terraform (per eventuale deploy cloud)
+- [x] Backend Python (Uvicorn) + Redis con network isolation a due livelli
+- [x] Observability stack: Prometheus, Grafana, cAdvisor, Node Exporter
+- [x] Discord bot per IP discovery su rete dinamica
+- [ ] Persistenza Redis con volumi nominati
+- [ ] Hot-reload dell'applicazione tramite bind mount dei sorgenti
+- [ ] Log aggregation con **Loki + Promtail**
+- [ ] Provisioning automatizzato con **Ansible**
+- [ ] IaC per deploy cloud con **Terraform**
