@@ -1,0 +1,102 @@
+services:
+  # --- STACK BASICS ---
+  frontend:
+    image: nginx:alpine
+    container_name: frontend
+    depends_on:
+      - backend
+      - grafana
+    ports:
+      - "${HTTP_PORT}:3000"
+    volumes:
+      - ./frontend/default.conf:/etc/nginx/conf.d/default.conf    # nginx configuration
+      - ./frontend/src:/usr/share/nginx/html                      # site content
+    networks:
+      - network1
+
+  backend:
+    build: ./backend
+    container_name: backend
+    networks:
+      - network1
+      - network2
+
+  database:
+    container_name: database
+    image: redis
+    networks:
+      - network2
+
+  # --- PLUGINS ----
+  discord_bot:
+    build: ./discord
+    container_name: discord_bot
+    network_mode: "host"
+    restart: "no"
+    environment:
+      - DISCORD_WEBHOOK_URL
+      - HTTP_PORT
+
+  # --- PROMETHEUS AND GRAFANA ---
+  node_exporter:
+    image: prom/node-exporter:latest
+    container_name: node_exporter
+    restart: unless-stopped
+    networks:
+      - network3
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "${CADVISOR_PORT}:8080"
+    networks:
+      - network3
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus/prometheus.yml/:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - cadvisor
+    networks:
+      - network3
+
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '${GRAFANA_PORT}:3000'
+    depends_on:
+      - prometheus
+    networks:
+      - network3
+
+networks:
+  network1:
+  network2:
+  network3:

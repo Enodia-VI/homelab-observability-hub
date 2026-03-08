@@ -1,0 +1,18 @@
+# 1. Configurazioni Globali (Valgono per tutti i job)
+global:
+  scrape_interval: 15s     # Ogni quanto tempo interroga i target (Default: 1m)
+  evaluation_interval: 15s # Ogni quanto calcola le regole di alert (Default: 1m)
+
+# 2. Elenco dei "Bersagli" da monitorare
+scrape_configs:
+  - job_name: 'node_exporter'
+    static_configs:
+      - targets: ['node_exporter:9100']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
